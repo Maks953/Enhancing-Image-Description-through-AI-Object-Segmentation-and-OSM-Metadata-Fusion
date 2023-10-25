@@ -13,4 +13,7 @@ Due to ethical consideration, there will be an emphasis on privacy and ethical r
 
 # The Neural Network
 
+# Open Street Map integration
+
+
 
