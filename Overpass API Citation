@@ -1,0 +1,961 @@
+{{Languages|Overpass API}}
+{{Overpassapi}}
+{{Software
+|name=Overpass API
+|author={{GitHub_link|drolbr/Overpass-API/graphs/contributors}}
+|web=[http://overpass-api.de overpass-api.de]
+|repo={{GitHub_link|drolbr/Overpass-API}}
+|screenshot=Overpass_API_logo.svg
+|description=A database engine to query the OpenStreetMap data
+}} {{Communication channels
+| list name = overpass
+| list baseurl = https://listes.openstreetmap.fr/wws/info/
+| issue tracker = https://github.com/drolbr/Overpass-API/issues
+}}
+
+[[File:Overpass API logo.svg|right|400px|link=http://www.overpass-api.de/]]
+
+== Introduction ==
+The Overpass API (formerly known as ''OSM Server Side Scripting'', or ''OSM3S'' before 2011) is a read-only API that serves up custom selected parts of the OSM map data. It acts as a database over the web: the client sends a query to the API and gets back the data set that corresponds to the query.
+
+Unlike the main [[API_v0.6|API]], which is optimized for editing, Overpass API is optimized for data consumers that need a few elements within a glimpse or up to roughly 10 million elements in some minutes, both selected by search criteria like e.g. location, type of objects, tag properties, proximity, or combinations of them. It acts as a database backend for [[Overpass_API/Applications|various services]].
+
+Please see the [https://dev.overpass-api.de/overpass-doc/en/ full user's manual] for a detailed introduction.
+
+There exists in addition a [[Overpass_API/Overpass_QL|Overpass QL guide/language reference]]. It is highly recommended to get familiar with various features via [[overpass turbo]], an [https://overpass-turbo.eu interactive Web-based frontend]. For legacy applications, there's also a [[#XAPI Compatibility Layer|compatibility layer]] to allow a smooth transition from [[XAPI]].
+
+
+== Quick Start (60 seconds): Interactive UI ==
+(If interested in raw data see '''Quick Start: for Developers/Programmers''' below)
+
+*Open [https://overpass-turbo.eu/ overpass turbo]  in a new tab
+*Click on the "Wizard" button
+*Type something like "Drinking Water in London" in the text box
+*Click "Build and Run Query"
+*On the left will be the formal query (see [[Overpass API/Overpass API by Example|tons of examples]], and [[Overpass API/Language Guide|the full guide to the query language]])
+*On the right will be a map of the results!
+
+== Quick Start (60 seconds): for Developers/Programmers ==
+Note: this approach retrieves raw data, and while this example uses Javascript, with JSON output, the API works with effectively any language and has many output formats. 
+
+* (Be ready to ignore the following "'''Error''': encoding error: Your input contains only whitespace." which just means "no query was given") 
+* Open https://overpass-api.de/api/interpreter in a new tab
+* Open your browser's [https://appuals.com/open-browser-console/ console] while on that page
+* Paste the code snippet below (and press [Enter])
+
+ var result = await fetch(
+     "<nowiki>https://overpass-api.de/api/interpreter</nowiki>",
+     {
+         method: "POST",
+         // The body contains the query
+         // to understand the query language see "The Programmatic Query Language" on
+         // <nowiki>https://wiki.openstreetmap.org/wiki/Overpass_API#The_Programmatic_Query_Language_(OverpassQL)</nowiki>
+         body: "data="+ encodeURIComponent(`
+             [bbox:30.618338,-96.323712,30.591028,-96.330826]
+             [out:json]
+             [timeout:90]
+             ;
+             (
+                 way
+                     (
+                          30.626917110746,
+                          -96.348809105664,
+                          30.634468750236,
+                          -96.339893442898
+                      );
+             );
+             out geom;
+         `)
+     },
+ ).then(
+     (data)=>data.json()
+ )
+ 
+ console.log(JSON.stringify(result , null, 2))
+* You should then see something similar to the following:
+  {
+    version: 0.6,
+    generator: "Overpass API 0.7.61.5 4133829e",
+    osm3s: {
+      timestamp_osm_base: "2023-10-17T15:22:15Z",
+      copyright: "The data included in this document is from www.openstreetmap.org. The data "...
+    },
+    elements: [
+      {
+        type: "way",
+        id: 20714383,
+        bounds: {
+          minlat: 30.6277358,
+          minlon: -96.341929,
+          maxlat: 30.628834,
+          maxlon: -96.340566
+        },
+        nodes: [ 222454378, 4204990218, 222454386 ],
+        geometry: [
+          { lat: 30.6277358, lon: -96.340566 },
+          { lat: 30.6278459, lon: -96.3407026 },
+          { lat: 30.628834, lon: -96.341929 }
+        ],
+        tags: {
+          highway: "service",
+          name: "W-X Street",
+          postal_code: "77840",
+          "tiger:county": "Brazos, TX"
+        }
+      },
+ 
+ ...
+
+* Usually, the output will be truncated. To see the full response:
+:* Go to the Network tab.
+:* Select the last line.
+:* Go to the Response inner tab.
+
+== The Programmatic Query Language (OverpassQL) ==
+* First know there are two query languages:
+** OverpassQL (the raw/unfriendly language)
+** Overpass API Query Language (more friendly AND can be [https://overpass-api.de/query_form.html auto-converted] into OverpassQL)
+* To get a query that can be used in your code:
+*# Use the '''[https://wiki.openstreetmap.org/wiki/Overpass_API#Quick_Start_(60_seconds):_Interactive_UI Quick Start: Interactive UI]''' section above to generate/understand the user-friendly query syntax
+*# Then use [https://overpass-api.de/query_form.html this site] to convert your user-friendly queries to OverpassQL
+*# Then use THAT output in the code (as demonstrated [https://wiki.openstreetmap.org/wiki/Overpass_API#Quick_Start_(60_seconds):_for_Developers/Programmers above]; e.g. a URI-escaped body of a POST request)
+
+== Public Overpass API instances==
+To support small and well scaling OSM main services, Overpass API is run as a third party service. You can use the public visible instances:
+
+{| class="wikitable"
+|-
+! scope="col" |Name
+! scope="col" |Data coverage
+! scope="col" |Endpoint
+! scope="col" |[[Overpass API/versions|Version]]
+! scope="col" |[[Attic Data|Attic data]]
+! scope="col" |Hardware
+!Munin
+! scope="col" width="40%" |Usage policy
+|-
+|[https://overpass-api.de/ Main Overpass API instance]
+|Global
+|<strong>https://overpass-api.de/api/interpreter</strong>
+| 0.7.61.5 4133829e
+| {{yes}} 
+|2 servers, each 16 physical cores, 128 GB RAM, NVME-SSD
+|[https://munin.lambert.openstreetmap.de/ 1][https://munin.gall.openstreetmap.de/ 2]
+|You can safely assume that you don't disturb other users when you do less than 10,000 queries per day and download less than 1 GB data per day<ref>https://dev.overpass-api.de/overpass-doc/en/preface/commons.html</ref>.
+|-
+|VK Maps Overpass API instance (Russia)
+|Global
+|<strong>https://maps.mail.ru/osm/tools/overpass/api/interpreter</strong>
+|0.7.57.1
+| {{yes}} 
+|2 servers with 56 physical cores, 384Gb RAM, SSD each
+| -
+|Feel free to use our services in any project. There are currently no requests limitations and we will try to keep this approach in the future.<br />overpass turbo is also deployed under  https://maps.mail.ru/osm/tools/overpass/
+|-
+|[https://overpass.openstreetmap.ru/ Russian Overpass API instance]
+|Global
+|<strong>https://overpass.openstreetmap.ru/api/interpreter</strong>
+|0.7.57.1
+| {{no}} 
+|8 cores, 64 GB RAM, hard disks
+| ?
+|-
+|[https://overpass.osm.ch/ Swiss Overpass API instance]
+|Switzerland only
+|<strong>https://overpass.osm.ch/api/interpreter</strong>
+|0.7.59.1 2a9d9642
+| {{no}}
+|12 cores, 64 GB RAM, hard disks
+| ? 
+|Ask [[User:Datendelphin]]
+|-
+|[https://overpass.kumi.systems/ Kumi Systems Overpass Instance]
+|Global
+|<strong>https://overpass.kumi.systems/api/interpreter</strong>
+| Runs a mix of 0.7.59 and 0.7.60
+| {{yes}}
+|4 servers with 20 cores, 256GB RAM, SSD each
+| -
+|Feel free to use our service in any project, there is no rate limit in place. Please notify us in advance if you intend to use our service in a large scale project. Operational issues/questions/feedback? Please [https://overpass.kumi.systems/contact.html post a support ticket].
+|}
+
+An Overpass API endpoint is also available for [[OpenHistoricalMap/Reuse#Overpass|OpenHistoricalMap]]. See [[OpenHistoricalMap/Overpass]] for instructions for accessing this endpoint and examples of OpenHistoricalMap queries.
+
+Queries to the Overpass API are in XML or Overpass QL form. See the semantics explained [[#Simple_usage_examples|below]]. You can use the [[Overpass turbo]] frontend to create and display queries for the above-mentioned Overpass API instances.
+
+Overpass API also provides [[Overpass_API/Permanent_ID|permanent links]].
+
+==Community: where can I get help?==
+
+Firstly - note that [[Overpass Turbo]] is documented separately to the [https://dev.overpass-api.de/overpass-doc/en/ Overpass API] itself.  The Overpass API documentation isn't searchable and won't actually help you much unless you are already very familiar with the Overpass API itself.  If you've come to Overpass via .e.g Taginfo, then it's the [[Overpass Turbo]] documentation (which includes a query wizard) that you actually want.
+
+There are several community sites providing help for Overpass API and overpass turbo related questions. It is the recommended channel for introductory to expert level questions or more generally, if your question is interesting to a wider audience.
+
+'''Please note that old questions and old answers on these sites may be outdated.''' Missing features may have been implemented in the meantime, and workarounds may have been streamlined.  If you ask a question on a real-time help site such as IRC or Slack, then obviously you'll get an up to date answer.
+
+In addition, only the IRC and OSM Help links are managed by the OSM community - the other sites are controlled by third parties.
+
+{| class="wikitable"
+|-
+!Type
+! scope="col" |Site
+! scope="col" |Language
+! scope="col" |Frequently used 'tags' for questions
+|-
+| colspan="4" |'''Forum'''
+|-
+|
+|[https://community.openstreetmap.org OSM Community] (categories: [https://community.openstreetmap.org/c/general/38 General talk], [https://community.openstreetmap.org/c/help-and-support/7 Help & Support])
+|English
+|overpass
+|-
+| colspan="4" |'''Q&A Sites'''
+|-
+|
+|[https://gis.stackexchange.com/questions/tagged/overpass-api GIS StackExchange]
+|English
+|overpass-api
+
+|-
+|
+|[https://stackoverflow.com/questions/tagged/overpass-api Stack Overflow]
+|English
+|overpass-api
+|-
+| colspan="4" |'''Chat'''
+|-
+|
+|[https://slack.openstreetmap.us/ OSM US Slack] (channel #overpass)
+|English
+|
+|-
+|
+|[https://t.me/OpenStreetMapDev OSM Dev Telegram group]
+|English
+|
+|-
+|
+|[https://discord.gg/MBP2sJb OSM World Discord] (channel #developer)
+|English
+|
+|-
+|
+|IRC [[IRC|#osm channel]]
+|English
+|n/a - just ask your question
+|-
+| colspan="4" |'''Legacy sites'''
+|-
+|
+|''[https://help.openstreetmap.org/tags/overpass/ OSM Help] (outdated, use OSM Community instead)''
+|''English''
+|''overpass, overpass-turbo''
+|}
+
+==Developers / System Administrators ==
+You can [[Overpass API/Installation|install]] your own instance from the [[Overpass API/versions|latest stable release]] or [//github.com/drolbr/Overpass-API the git source code repository (latest version)]. It is licensed under the Affero GPL v3.
+
+The project is maintained by [[User:Roland.olbricht|Roland Olbricht]] (mail: roland.olbricht@gmx.de). Contributions like bug reports or pull requests to [//github.com/drolbr/Overpass-API the source code] are welcome.
+
+There is a [http://listes.openstreetmap.fr/wws/info/overpass mailing list for developers]
+
+==Limitations==
+Every service has its limitations, and so does Overpass API:
+
+;Downloading big data
+:As the size of an Overpass API query result is only known when the download is complete, it is impossible to give an ETA while downloading. And the dynamically generated files from Overpass API typically take longer to generate and download than downloading existing static extracts of the same region. As a result, when you want to extract country-sized regions with all (or nearly all) data in it, it's better to use [[planet.osm]] mirrors for that. Overpass API is most useful when the amount of data needed is only a selection of the data available in the region.
+
+;Querying of OSM data history
+:Overpass API doesn't offer [[changeset]]-based criteria. It's possible to work around that, by using time-based diffs, but this may be clumsy. <s>Overpass API also can't give you full history of an object, but time-based selection criteria can give you the state of an object at a certain time.</s> (this is supported since version 0.7.55 via <code>retro</code> and <code>timeline</code>, see [https://dev.overpass-api.de/blog/sliced_time_and_space.html Sliced Time and Space] for more details).
+
+;Database lag
+:It can take a couple of minutes for [[changeset|changes]] to the [[database]] to show up in the Overpass API query results. Every query returns an <code>osm_base</code> timestamp which tells you the last time the data was updated. For the overpass-api.de instances you can also inspect the current and historic database lag via Munin ([https://lz4.overpass-api.de/munin/localdomain/localhost.localdomain/osm_db_lag.html lz4] & [https://z.overpass-api.de/munin/localdomain/localhost.localdomain/osm_db_lag.html z]).
+
+==The map query==
+Before we get to a detailed syntax explanation, we present the probably most common use case, <em>the map query</em>, to collect all data (including metadata) from a given bounding box (these requests are compacted to the minimum; note that the icon links to run those requests also include parameters to set the center of the rendered map at specified coordinates and zoom level, and to run the request immediately on load):
+
+{| class="wikitable" width="100%" style="background: white;"
+|-
+! scope="col" |Overpass QL
+! scope="col" |Overpass XML
+|- valign="top" 
+|
+{{OverpassTurboExample|query=
+(
+   node(51.249,7.148,51.251,7.152);
+   <;
+);
+out meta;
+}}
+|{{OverpassTurboExample|query=
+<union>
+  <bbox-query s="51.249" w="7.148" n="51.251" e="7.152"/>
+  <recurse type="up"/>
+</union>
+<print mode="meta"/>
+}}
+|}
+
+To run this query, you can feed it into [http://overpass-api.de/query_form.html this query form], or you can use [[Overpass Turbo]] to see the results on a map.
+
+The order of values in the bounding box <em>(51.249,7.148,51.251,7.152)</em> is minimum latitude, minimum longitude, maximum latitude, maximum longitude (or South-West-North-East). See more details about bbox below.
+
+== Simple usage examples==
+To find out more about the Overpass API query language, see [[Overpass API/Language_Guide|Overpass API Language Guide]], as well as the [[Overpass API/Overpass QL|Overpass API Query Language]] description.
+
+==Resource management options (osm-script) ==
+The <em>osm-script</em> is silently added if you don't specify it explicitly when using the XML syntax. The reason to specify one explicitly is to tweak the resource management options by setting optional XML attributes (equivalent bracketted options may also be specified in an empty statement at start of your query when using the QL syntax).
+
+{|
+|-
+! scope="col" |Overpass XML
+! scope="col" |Overpass QL
+|- valign="top" 
+|
+[[File:Overpass-turbo.svg|16x16px|right|try it yourself in overpass-turbo|link=http://overpass-turbo.eu/?Q=%3Cosm-script%3E%3Cbbox-query%20s%3D%2251.15%22%20w%3D%227.0%22%20n%3D%2251.35%22%20e%3D%227.3%22%2F%3E%3Cprint%2F%3E%3C/osm-script%3E&C=51.25;7.15;15&R]]
+<source lang="xml">
+<osm-script timeout="900" element-limit="1073741824">
+  <bbox-query s="51.15" w="7.0" n="51.35" e="7.3"/>
+  <print/>
+</osm-script>
+</source>
+|
+[[File:Overpass-turbo.svg|16x16px|right|try it yourself in overpass-turbo|link=http://overpass-turbo.eu/?Q=%5Btimeout:900%5D%5Bmaxsize:1073741824%5D;node(51.15,7.0,51.35,7.3);out;&C=51.25;7.15;15&R]]
+<source lang="cpp">
+[timeout:900][maxsize:1073741824];
+node(51.15,7.0,51.35,7.3);
+out;
+</source>
+|}
+
+This query extends the timeout from 3 minutes to 15 minutes (written as 900 seconds). Additionally, the soft quota for memory usage is set to 1&nbsp;GiB (equals 1073741824 byte).
+
+Warning: when running this example, more than 100&nbsp;MiB of data will be retrieved (even if it does not recurse up to give all details like in the first example, here it will only retrieve a flat list of nodes with their tags). Overpass will alert you if you run it directly in your browser to render the data on the map, the browser tab may crash if you continue loading it. The results of such large requests should be downloaded for processing by other tools.
+
+These resource limits cannot be set to arbitrary high values: each Overpass API instance may refuse to extend them above some threshold (depending on server capabilities or current server load), or the query may just fail with an error message (and non-OK HTTP server error status).
+
+==Advanced usage examples ==
+The following examples introduce the remaining commands ''recurse'' and ''around''. They only make sense in combination with other commands.
+
+Again, all of the following examples can be tested by copying the snippets to this [http://www.overpass-api.de/query_form.html query form].
+
+Note: Queries may take several minutes to be completed. If you receive timeouts, [[Overpass API#Resource management options (osm-script)|you can extend the timeout period]].
+
+===Recurse===
+With ''recurse'', you query for membership relations. It is available for ways to get all referred nodes, for relations to get all member nodes or member ways. Or the other way round, to get for a node, way or relation the ways or relations the element is member of. You select among the type of element by the ''type'' attribute.
+
+Example: Get the nodes of all relations that have the key ''ref'' with value ''E61''. In fact, get all bus stops served by ''E61''.
+
+{{TryOverpassTurbo
+| view = 51.5327441;9.9344657;13
+| xml = <query type="relation">
+  <has-kv k="ref" v="E61"/>
+</query>
+<recurse type="relation-node"/>
+
+<print/>
+| ql = rel[ref="E61"];
+node(r);
+
+out body;
+}}
+
+Get the ways of all relations that have the key ''ref'' with value ''E61''. In fact, that is the itinerary served by ''E61''.
+
+{{TryOverpassTurbo
+| view = 51.5327441;9.9344657;13
+| xml = <query type="relation">
+  <has-kv k="ref" v="E61"/>
+</query>
+<recurse type="relation-way"/>
+
+<print/>
+| ql = rel[ref="E61"];
+way(r);
+
+out body;
+}}
+
+Get the nodes of the above mentioned ways. You don't get the bus stops, but that is intentionally - see below at the ''union'' examples.
+
+{{TryOverpassTurbo
+| view = 51.5327441;9.9344657;13
+| xml = <query type="relation">
+  <has-kv k="ref" v="E61"/>
+</query>
+<recurse type="relation-way"/>
+<recurse type="way-node"/>
+
+<print/>
+| ql = rel[ref="E61"];
+way(r);
+node(w);
+
+out body;
+}}
+
+Get all relations that have the nodes named ''Lichtscheid'' as members. These are the bus lines stopping there.
+
+<source lang="xml">
+<query type="node">
+  <has-kv k="name" v="Lichtscheid"/>
+</query>
+<recurse type="node-relation"/>
+
+<print/>
+</source>
+
+Get all the ways that have a node member within the given bounding box.
+
+<source lang="xml">
+<bbox-query s="51.249" n="51.251" w="7.149" e="7.151"/>
+<recurse type="node-way"/>
+
+<print/>
+</source>
+
+And we can also get relation members of relations:
+
+<source lang="xml">
+<query type="relation">
+  <has-kv k="name" v="VRR Buslinien"/>
+</query>
+<recurse type="relation-relation"/>
+
+<print/>
+</source>
+
+Or the same thing backwards:
+
+<source lang="xml">
+<query type="relation">
+  <has-kv k="ref" v="E61"/>
+</query>
+<recurse type="relation-backwards"/>
+
+<print/>
+</source>
+
+=== Around===
+<code>around</code> allows you to get all nodes near one or more given nodes. For example, to get all nodes that are at most 10 meters around the nodes called Bristol:
+
+[[File:Overpass-turbo.svg|16x16px|right|try it yourself in overpass-turbo|link=http://overpass-turbo.eu/s/3lB]]
+<source lang="xml">
+<query type="node">
+  <has-kv k="name" v="Bristol"/>
+</query>
+<around radius="10"/>
+<print/>
+</source>
+
+You can also chain queries to get only nodes satisfying a second criterion that are located near nodes matching the first criterion. Here, we will search for all bus stops within 100 meters of pubs named "Bristol":
+
+[[File:Overpass-turbo.svg|16x16px|right|try it yourself in overpass-turbo|link=http://overpass-turbo.eu/s/3lz]]
+<source lang="xml">
+<query type="node">
+  <has-kv k="amenity" v="pub"/>
+  <has-kv k="name" v="Bristol"/>
+</query>
+<query type="node">
+  <around radius="100"/>
+  <has-kv k="highway" v="bus_stop"/>
+</query>
+<print/>
+</source>
+
+==Building blocks==
+We still have some helper statements to explain, in particular <em>union</em>, <em>item</em>, the variable mechanism, and <em>foreach</em>.
+
+Again, all of the following examples can be tested by copying the snippets to [http://www.overpass-api.de/query_form.html this form].
+
+===Union===
+Union allows you to group the results of several queries. For example, you can get all nodes that have name <em>Lichtscheid</em> or <em>Müngstener Straße</em>.
+
+<source lang="xml">
+<union>
+  <query type="node">
+    <has-kv k="name" v="Lichtscheid"/>
+  </query>
+  <query type="node">
+    <has-kv k="name" v="Müngstener Straße"/>
+  </query>
+</union>
+<print/>
+</source>
+
+Another usage would be to get a relation with all of its members, including the nodes of member ways.
+
+<source lang="xml">
+<union>
+  <query type="relation">
+    <has-kv k="ref" v="CE 61"/>
+  </query>
+  <recurse type="relation-node" into="nodes"/>
+  <recurse type="relation-way"/>
+  <recurse type="way-node"/>
+</union>
+<print/>
+</source>
+
+This needs some explanation:
+*<em>query</em> collects the relations with ref <em>CE 61</em>. It writes the result to the default variable <em>_</em>. And the embracing <em>union</em> collects the data.
+*<em>recurse relation-node</em> collects the nodes that are members of the above found relations. The result is placed in the variable <em>nodes</em> (we don't need it there anymore, just to keep relations in the default variable). And it is collected by the embracing union.
+*<em>recurse relation-way</em> sees again the relations from the default variable and returns the ways that are members of the default variable's relations. Again, the embracing union collects the results.
+*<em>recurse way-node</em> finally returns the nodes that are members of the ways just collected. This is the last piece of data that goes into the <em>union</em>'s result.
+
+If you think this is complicated, you are right. I'm open to suggestions how to improve the statement semantics, but I haven't found anything systematic yet.
+
+Now we are ready to assemble the map call, by combining a <em>bbox-query</em> with several <em>recurse</em> statements and embracing the whole thing with an <em>union</em>.
+
+===Item===
+Part of the idea behind <em>item</em> and variables you have already seen in the preceding example: every statement fetches its input from a variable and puts its output into a variable. If you omit the variable name, it defaults to <em>_</em>. This makes in possible to remove almost all explicit specifications of variables. The input is always fetched from the variable named by the attribute <em>from</em>, the output is always put into the variable specified with <em>into</em>.
+
+<source lang="xml">
+<query type="way" into="foo">
+  <has-kv k="name" v="Am Hofe"/>
+</query>
+<print from="foo"/>
+</source>
+
+E.g., this does the same as the respective example at <em>print</em>, but it uses the explicitly stated variable <em>foo</em>.
+
+To make this concept fully versatile, <em>item</em> allows you to specify a set as input in <em>union</em> and <em>query</em>:
+
+<source lang="xml">
+<query type="relation">
+  <has-kv k="network" v="VRR"/>
+  <has-kv k="ref" v="645"/>
+</query>
+<recurse type="relation-node" into="stops"/>
+<query type="node">
+  <around from="stops" radius="100"/>
+  <has-kv k="highway" v="bus_stop"/>
+</query>
+<union>
+  <item/>
+  <recurse type="node-relation"/>
+  <query type="node">
+    <around from="stops" radius="100"/>
+    <has-kv k="park_ride"/>
+  </query>
+</union>
+<print/>
+</source>
+
+Here, in the middle, the <em>item</em> ensures that the beforehand collected data for <em>bus_stop</em> is included in the results of <em>union</em>. This also shows how the variable <em>stops</em> is necessary to make the query possible.
+
+<source lang="xml">
+<bbox-query s="51.15" n="51.35" w="7.0" e="7.3"/>
+<recurse type="node-way"/>
+<query type="way">
+  <item/>
+  <has-kv k="highway" v="motorway"/>
+</query>
+<print/>
+</source>
+
+The <em>item</em> in query restricts the possibly found items to those already found in the step before, with <em>recurse</em>. Thus, we have a complete query to find ways with arbitrary tags within a bbox.
+
+===Foreach===
+<source lang="xml">
+<query type="relation">
+  <has-kv k="type" v="multipolygon"/>
+  <has-kv k="name"/>
+</query>
+<foreach into="pivot">
+  <union>
+    <recurse type="relation-way" from="pivot"/>
+    <recurse type="way-node"/>
+  </union>
+  <make-area pivot="pivot"/>
+</foreach>
+</source>
+
+This is the essential part of the rule that creates the [[Overpass_API/Areas|areas]]. We do not explain the <em>make-area</em> here, please have a look at [[Overpass_API/Areas|Areas]] wiki page for details. The first part with <em>query</em> collects all relations with certain properties. In the second part, we want to do something with each element in the result of <em>query</em>. This does <em>foreach</em>. The body of the loop is executed once for every element in the input set, containing exactly this single element in the output set, here named as <em>pivot</em>.
+
+==Meta data==
+Beside the special mode of <em>print</em>, there are two statements dedicated to query for specific meta data, <em>user</em> and <em>newer</em>.
+
+===User===
+You can select all data that has been touched the last time by a particular user. Choose the user name (for example, mine):
+
+<source lang="xml">
+<user name="Roland Olbricht"/>
+<print mode="meta"/>
+</source>
+
+Or choose a user id:
+
+<source lang="xml">
+<user uid="65282"/>
+<print mode="meta"/>
+</source>
+
+This statement can also be used within a query statement. It then restricts the result to data that has been last touched by the provided user:
+
+<source lang="xml">
+<query type="node">
+  <user name="Roland Olbricht"/>
+  <has-kv k="highway" v="bus_stop"/>
+  <bbox-query s="51.2" n="51.35" w="7.05" e="7.3"/>
+</query>
+<print mode="meta"/>
+</source>
+
+===Newer===
+Newer can be used within query statement (and not as a standalone statement). It restricts the output to elements that are newer than the given date.
+The date must be in the format <b>YYYY-MM-DD</b>T<b>HH:MM:SS</b>Z. It refers, as the results, always to the timezone UTC.
+
+<source lang="xml">
+<query type="node">
+  <newer than="2011-08-01T00:00:00Z"/>
+  <has-kv k="highway" v="bus_stop"/>
+  <bbox-query s="51.2" n="51.35" w="7.05" e="7.3"/>
+</query>
+<print mode="meta"/>
+</source>
+
+If you want to get all nodes newer than a certain date from a bbox, you can use <em>query</em> with an <em>item</em> substatement.
+
+<source lang="xml">
+<bbox-query s="51.2" n="51.35" w="7.05" e="7.3"/>
+<query type="node">
+  <item/>
+  <newer than="2011-08-01T00:00:00Z"/>
+</query>
+<print mode="meta"/>
+</source>
+
+See [[Overpass API/Overpass API by Example#Users and old data]] for examples with more modern syntax.
+
+== Public transport example==
+[[File:Line 6.png|300px|thumb|Example preview of line {{Sketch Line|6|APS Mobilità|padua|correspondences=100}} (APS Mobilità).]]
+
+An interesting example of how the Overpass API can be integrated into an application - a [http://www.overpass-api.de/public_transport.html service] to generate line diagrams for public transport.
+
+See example prerendered views on the right. [[Overpass API/Public transport examples|More examples on this page]].
+
+On this wiki, you can create links to this tool with the documented {{Tl|Sketch Line}} template.
+
+(Please be patient - each request can take up to 10 seconds to generate, depending on server load.)
+
+'''Note:''' As of Overpass API v0.7.52, PTv2 support has some known issues, resulting in duplicate stop names or some gaps, see [https://github.com/drolbr/Overpass-API/issues/190 Github issue #190]. Rendering issues for newer PTvX versions or variations thereof may be possible as well.
+{{Clear}}
+
+==XAPI Compatibility Layer ==
+For details and examples see:
+*[[Overpass API/XAPI Compatibility Layer]]
+*[http://harrywood.co.uk/maps/uixapi/xapi.html Overpass XAPI query builder] at harrywood.co.uk
+
+==Programs/Scripts around Overpass ==
+=== Python API===
+*[https://github.com/gappleto97/overpassify overpassify] &mdash; a Python transpiler which converts a Python function to an Overpass query
+*[https://github.com/mvexel/overpass-api-python-wrapper overpass] &mdash; a simple Python wrapper written by [[User:Mvexel|Martijn van Exel]]
+*[https://github.com/DinoTools/python-overpy overpy] &mdash; an advanced Python wrapper
+*[https://github.com/mocnik-science/osm-python-tools OSMPythonTools] provides easy access to OSM related services, including Overpass (see also [[OSMPythonTools|the wiki page]])
+
+===Node.js API===
+*[https://www.npmjs.com/package/query-overpass query-overpass] is a simple API wrapper and CLI for Overpass.
+*[https://www.npmjs.com/package/overpass-ts overpass-ts] promise-based API client in Typescript; works in Browser & Node.js; supports JSON & XML/text & stream response
+
+===Javascript===
+*[https://github.com/altilunium/glam-counter GLAM Counter] provides an example on how to access Overpass API by using simple POST request.
+
+===Converters===
+* To GPX output [https://github.com/osm-fr/osm2node osm2node source code] and [[Servers/api.openstreetmap.fr#Output_to_GPX|Online service]]
+*API 0.6 wrapper [https://github.com/osm-fr/simple_api_proxy source code] and [[Servers/api.openstreetmap.fr#Almost-API_0.6|Online service]]
+*[https://www.npmjs.org/package/osmtogeojson osmtogeojson] converts OSM data to [http://geojson.org GeoJSON] and has full support for Overpass API's [[Overpass API/Overpass QL#out|extended geometry output]] modes.
+*[http://ustroetz.github.io/gimmeOSM gimmeOSM] lets you enter a feature ID and returns it as GeoJSON.
+
+== Talks, Presentations, Workshops==
+This section lists previous presentation, talks, workshops on Overpass API and related topics. Many presentations are a good start even for beginners with lots of examples. 
+
+{| class="wikitable sortable" width="95%"
+! Date
+!Event
+!Location
+!Title
+! Type
+!Speaker
+!Language
+!Links
+|-
+|June 2023
+|[[FR:State_of_the_Map_France_2023|SOTM FR 2023]]
+|Marseille (FR)
+|Overpass Turbo: le couteau suisse des données OSM
+|Presentation
+|Antoine Riche
+|French
+|[https://peertube.openstreetmap.fr/w/tzPeb3w8W7TKmCm4g7eiEF Video]
+|-
+|February 2020
+|[[Italy/Events/OSMit 2020|OSMit 2020]]
+| Torino (IT)
+|Overpass Turbo: oltre il wizard
+|Presentation
+| Andrea Albani
+|Italian
+|[[:File:Overpass-IT-1.5.pdf|Slides]] [[:File:Overpass-examples-IT-1.5.pdf|Examples]]
+|-
+|September 2019
+|[[State of the Map U.S. 2019|SotMUS 2019]]
+|Minneapolis (US)
+|[https://2019.stateofthemap.us/program/fri/a-turbo-introduction-to-overpass.html A turbo introduction to Overpass]
+|Presentation
+|[[User:Minh Nguyen|Minh Nguyễn]]
+|English
+|[https://youtu.be/q9QI4AfwHoM Video], [[:File:A turbo introduction to Overpass.pdf|Slides]], [[:File:A turbo introduction to Overpass (with notes).pdf|Slides+notes]]
+|-
+| August 2019
+| COSCUP 2019 OpenStreetMap x Wikidata track
+| Taipei (TW)
+|[https://coscup.org/2019/programs/geographic-data-for-beginners-an-introduction-to-overpass-api-turbo/ Geographic Data for Beginners - An introduction to Overpass API Turbo] (Canceled)
+|Presentation
+|[[User:Assanges|Assanges]]
+|Mandarin
+|
+|-
+| Autumn 2017
+|
+|Université Rennes (FR)
+|Introduction aux données OpenStreetMap et à l'API Overpass Turbo
+|Presentation
+|Boris Mericskay
+|French
+|[https://www.academia.edu/35302265/Introduction_aux_donn%C3%A9es_OpenStreetMap_et_%C3%A0_lAPI_OverPass_Turbo Slides]
+|-
+| August 2017
+| COSCUP 2017 Open GIS track
+| Taipei (TW)
+|[https://coscup.org/2017/#/schedule/day1/3061510 OpenStreetMap and Overpass Turbo]
+|Presentation
+| Thomas Tsai
+|Mandarin
+|[https://blog.libthomas.org/calendar/2017/08/05/20/57.html Slides],  [https://www.youtube.com/watch?v=P8UePLZok7U Video]
+|-
+|September 2016
+|[[State Of The Map 2016|SotM 2016]]
+|Brussels (BE)
+|Gardening OSM data with Overpass API
+|Presentation
+|[[User:Roland.olbricht|Roland Olbricht]]
+|English
+|[http://2016.stateofthemap.org/2016/gardening-osm-data-with-overpass-api/ Video]
+|-
+|July 2016
+|[[FOSSGIS_2016/OSM-Sonntag|FOSSGIS 2016 - OSM-Sonntag]]
+|Salzburg (AT)
+|Overpass-Abfragen jenseits key=value selber schreiben
+|Workshop
+|[[User:Nakaner|Nakaner]]
+|German
+|[[:File:2016-02-03-overpass-workshop-osm-sonntag.pdf|Slides]]
+|-
+|May 2016
+|[http://openstreetmap.fr/SOTMFR2016 SOTM FR 2016]
+|Clermont-Ferrand (FR)
+|Démystifier l'API Overpass / Demystify the Overpass API
+|Workshop
+|[[User:naomap|Antoine Riche]]
+|French
+|[http://dai.ly/x4dl3e0 Video]
+|-
+|Oct 2015
+|[http://www.fossgis.de/wiki/FOSS@HFT FOSS@HFT Stuttgart]
+|Stuttgart (DE)
+|Parametrisierter Download aus einer weltweiten Geodatenbank (OpenStreetmap) sowie daran anschliessend mit dem Workshop Algorithmik und Technik, Hypothesenprüfung
+|Presentation/Workshop
+|[[User:Roland.olbricht|Roland Olbricht]]
+|German
+|[http://dx.doi.org/10.5446/17720 Video]
+|-
+|July 2015
+|AGIT 2015
+|Salzburg (AT)
+|Overpass API: OpenStreetMap-Daten vorgefiltert beziehen
+|Presentation
+|[[User:Roland.olbricht|Roland Olbricht]]
+|German
+| ?
+|-
+|June 2015
+|SotM US 2015
+|NYC (US)
+|Working with OSM diffs / The Overpass API
+|Workshop
+|[[User:Roland.olbricht|Roland Olbricht]]
+|English
+| ?, [http://stateofthemap.us/workshops/ Abstract]
+|-
+|April 2015
+|[http://www.geo-spatial.org/index.php?id=439 geo-spatial.org]
+|Cluj (RO)
+|Overpass API: utilizarea datelor OpenStreetMap pentru a realiza hărți tematice
+|Workshop
+|[[User:Mgax|Alex Morega]]
+|Romanian
+|[https://github.com/mgax/workshop-geocj2015-overpass/blob/master/README.md Workshop materials]
+|-
+|March 2015
+|FOSSGIS 2015
+|Münster (DE)
+|Schatzsuche in OpenStreetMap
+|Presentation
+|[[User:Roland.olbricht|Roland Olbricht]]
+|German
+|[http://www.fossgis.de/konferenz/2015/programm/events/779.de.html Abstract], [https://www.youtube.com/watch?v=VJItOHImN7A Video]
+|-
+|March 2015
+|FOSSGIS 2015
+|Münster (DE)
+|OpenStreetMap-Daten pflegen und finden mit der Overpass API
+|Workshop (paid)
+|[[User:Roland.olbricht|Roland Olbricht]]
+|German
+|[http://www.fossgis.de/konferenz/2015/programm/track/Workshops%20%28bezahlt%29/780.de.html no material available]
+|-
+|February 2015
+| FOSDEM 2015
+|Bruxelles (BE)
+|Overpass-API - A service to query OpenStreetMap data
+|Presentation
+|[[User:Roland.olbricht|Roland Olbricht]]
+|English
+|[https://fosdem.org/2015/schedule/event/overpass/attachments/slides/651/export/events/attachments/overpass/slides/651/talk.odp Slides], [http://ftp.osuosl.org/pub/fosdem//2015/devroom-geospatial/overpass.mp4 Video]
+|-
+|September 2014
+|
+|Bonn (DE)
+|Overpass-API Seminar bei ZERA
+|Workshop
+|[[User:Roland.olbricht|Roland Olbricht]]
+|German
+|[http://overpass-api.de/misc/overpass_bonn_2014.txt Manuscript], [http://overpass-api.de/misc/overpass_bonn_2014.odp Slides]
+|-
+|June 2014
+|SotM-EU 2014
+|Karlsruhe (DE)
+|Overpass API v0.7.50 - The temporal dimension
+|Presentation
+|[[User:Roland.olbricht|Roland Olbricht]]
+|English
+|[https://web.archive.org/web/20181008000209/http://sotm-eu.org/en/slots/37 Slides/Video]
+|-
+|June 2014
+|SotM-EU 2014
+|Karlsruhe (DE)
+| Sparse Editing - Editing Large-Scale Objects
+|Presentation
+|[[User:Roland.olbricht|Roland Olbricht]]
+|English
+|[https://web.archive.org/web/20181007201040/http://sotm-eu.org/en/slots/59 Slides/Video]
+|-
+|April 2014
+|[[Graz/Linuxtage14|Grazer Linuxtage 2014]]
+|[[Graz]] (AT)
+|OpenStreetMap Daten nutzen
+|Presentation
+|[[User:Tyr|Martin Raifer]]
+|German
+|[https://slid.es/martinraifer/osm-daten-nutzen Slides]
+|-
+|March 2014
+|FOSSGIS 2014
+| Berlin (DE)
+|Daten aus OpenStreetMap extrahieren, analysieren und filtern mit der Overpass API
+|Workshop (paid)
+|[[User:Roland.olbricht|Roland Olbricht]]
+|German
+|[http://www.fossgis.de/konferenz/2014/programm/track/Workshops%20%28bezahlt%29/694.de.html no material available]
+|-
+|October 2013
+|Intergeo 2013
+|Essen (DE)
+|OSM-Daten direkt nutzen mit der Overpass API
+|Presentation
+|[[User:Roland.olbricht|Roland Olbricht]]
+|German
+|[http://overpass-api.de/misc/intergeo_2013.pdf Slides]
+|-
+|October 2013
+|[[IT:OSMit2013|OSMit 2013]]
+|[[Rovereto]] (IT)
+|Overpass Turbo
+|Presentation
+|[[User:Tyr|Martin Raifer]]
+|Italian
+|[https://web.archive.org/web/20131120105507/http://slid.es/martinraifer/overpass-turbo-en Slides]
+|-
+|March 2013
+|FOSSGIS 2013
+|Rapperswil (CH)
+|Daten aus OpenStreetMap extrahieren, analysieren und filtern mit der Overpass API
+|Workshop
+|[[User:Roland.olbricht|Roland Olbricht]]
+|German
+|[http://www.fossgis.de/konferenz/2013/programm/events/520.de.html Slides]
+|-
+|March 2013
+|FOSSGIS 2013
+|Rapperswil (CH)
+|overpass turbo - Einfache Analyse von OpenStreetMap Daten
+|Presentation
+|[[User:Tyr|Martin Raifer]]
+|German
+|[http://www.fossgis.de/konferenz/2013/programm/events/608.de.html Slides], [[FOSSGIS_2013/Videomitschnitte|Video]], [http://mapmedia.de/jdownloads/FOSSGIS%20Tagungsband/2013_fossgis_tagungsband_300dpi.pdf Tagungsband FOSSGIS 2013]
+|-
+|March 2013
+|FOSSGIS 2013
+|Rapperswil (CH)
+| Mobile Karten erstellen mit OSM, OpenLayers und Overpass API
+|Presentation
+|[[User:Roland.olbricht|Roland Olbricht]]
+|German
+|[http://www.fossgis.de/konferenz/2013/programm/events/521.de.html Slides], [[FOSSGIS_2013/Videomitschnitte|Video]]
+|-
+|December 2012
+|
+|
+|OSMDE009 OSM Talk: Die Overpass API
+|Podcast
+|[[User:Roland.olbricht|Roland Olbricht]], [[User:SB79|Stephan]]/RadioOSM
+|German
+|[http://podcast.openstreetmap.de/2012/12/28/osmde009-osm-talk-die-overpass-api/ Audio]
+|-
+|March 2012
+|FOSSGIS 2012
+| Berlin (DE)
+|Overpass API
+|Presentation
+|[[User:Roland.olbricht|Roland Olbricht]]
+|German
+|[http://www.fossgis.de/konferenz/2012/programm/events/418.de.html Slides], [http://mapmedia.de/downloads/finish/3-fossgis-tagungsband/4-2012-fossgis-tagungsband-300dpi Tagungsband FOSSGIS 2012]
+|-
+|July 2011
+|[[State Of The Map Europe 2011|SotM-EU 2011]]
+| Vienna (AT)
+|Overpass API - an open and slim XAPI alternative
+|Presentation
+|[[User:Roland.olbricht|Roland Olbricht]]
+|English
+|[https://2011.sotm-eu.org/slides/40_RolandOlbricht_talk__overpass_api.pdf Slides], [https://2011.sotm-eu.org/videos/40_RolandOlbricht_OverpassAPI.ogg Video]
+|}
+
+==Books==
+{{cite book |last=Olbricht |first=Roland |editor1-first=J. |editor1-last=Jokar Arsanjani|editor2-first=A. |editor2-last=Zipf|editor3-first=P. |editor3-last=Mooney|editor4-first=M.|editor4-last=Helbich|series=Lecture Notes in Geoinformation and Cartography |title=OpenStreetMap in GIScience |publisher=Springer International Publishing Switzerland |date=2015 |pages=101-122 |chapter=Chapter: Data Retrieval for Small Spatial Regions in OpenStreetMap|isbn=978-3-319-14280-7}}
+<!-- Not needed: already at top of page in the navbar
+== See Also ==
+* [[Overpass API|Overpass API page]]
+* [[Overpass API/Language Guide|Overpass Language Guide]]
+* [[Overpass API/Overpass QL|Language Reference]]
+* [[Overpass API/Overpass API by Example|Examples]]
+* [[Overpass API/Advanced examples|Advanced Examples]]
+* [[Overpass API/FAQ#Language|FAQ]]
+* [[Overpass API/Sparse Editing|Sparse Editing]]
+-->
+
+[[Category:Translate to German]]
+[[Category:Overpass API| ]]
+<references />
+
