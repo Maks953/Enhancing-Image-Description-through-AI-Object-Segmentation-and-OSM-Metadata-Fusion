@@ -1,5 +1,5 @@
-# Final-Year-Project-2023-2024
-Enhancing Image Description through AI Object Segmentation and OSM Metadata Fusion
+# Projekt Końcoworoczny 2023-2024
+Ulepszanie opisów obrazów za pomocą segmentacji obiektów AI i fuzji metadanych OSM
 
 In today's time , we have plenty of images as we are living in the so called digital world now, but separating specific objects from those images or real time camera integration can
 be overwhelming as there is many factors in play like shadows and other obstructing objects. 
